@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --accent: #1e4e8c; /* brand primary */
+  --accent-2: #f7931e; /* brand secondary */
+
+  /* light theme */
+  --bg: #f9fafb;
+  --card-bg: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --input-bg: #ffffff;
+  --input-text: #111827;
+  --placeholder: #9ca3af;
+
+  /* semantic */
+  --success: #10b981;
+  --error: #ef4444;
+
+  /* dark theme defaults (will be overridden by ThemeContext on load if dark)
+     these provide a fallback in case JS doesn't run immediately */
+  --bg-dark: #0f172a;
+  --card-bg-dark: #0b1220;
+  --text-dark: #e5e7eb;
+  --muted-dark: #9ca3af;
+  --border-dark: #1f2937;
+  --input-bg-dark: #041023;
+  --input-text-dark: #e5e7eb;
+  --placeholder-dark: #9ca3af;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: Poppins, Inter, ui-sans-serif, system-ui;
+  }
+}
+
+/* small utility for smooth interactions */
+.transition-default {
+  transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
