@@ -37,7 +37,7 @@ export const register = async (req: Request, res: Response) => {
     name: user.name,
     email: user.email,
     verificationToken: verificationToken,
-    origin: "http://localhost:5173",
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
   }).catch((err) => {
     CustomLogger.error("Error sending verification email:", err);
   });
@@ -129,7 +129,7 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
       name: user.name,
       email: user.email,
       verificationToken: user.verificationToken,
-      origin: "http://localhost:5173",
+      origin: process.env.FRONTEND_URL || "http://localhost:5173",
     });
   }
 
@@ -159,7 +159,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
       name: user.name,
       email: user.email,
       token: user.passwordToken,
-      origin: "http://localhost:5173",
+      origin: process.env.FRONTEND_URL || "http://localhost:5173",
     });
   }
   res.status(HttpCodes.OK).json(
