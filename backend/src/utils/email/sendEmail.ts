@@ -6,16 +6,16 @@ interface SendEmailOptions {
   html: string;
 }
 
-export const sendEmail = async ({
-  to,
-  subject,
-  html,
-}: SendEmailOptions): Promise<void> => {
+export const sendEmail = async ({ to, subject, html }: SendEmailOptions) => {
+  if (!process.env.BREVO_API_KEY) {
+    throw new Error("BREVO_API_KEY missing");
+  }
+
   try {
     await brevoEmailApi.sendTransacEmail({
       sender: {
-        email: process.env.EMAIL_USER!, 
         name: "FlyEasy",
+        email: process.env.EMAIL_USER!,
       },
       to: [{ email: to }],
       subject,
