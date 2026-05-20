@@ -1,6 +1,4 @@
-// utils/email/sendEmail.ts
-
-import { transporter } from "./transporter";
+import { brevoEmailApi } from "../../config/brevo";
 
 interface SendEmailOptions {
   to: string;
@@ -13,10 +11,18 @@ export const sendEmail = async ({
   subject,
   html,
 }: SendEmailOptions): Promise<void> => {
-  await transporter.sendMail({
-    from: `"Anthony" <${process.env.EMAIL_USER}>`,
-    to,
-    subject,
-    html,
-  });
+  try {
+    await brevoEmailApi.sendTransacEmail({
+      sender: {
+        email: process.env.EMAIL_USER!, 
+        name: "FlyEasy",
+      },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    });
+  } catch (error) {
+    console.error("BREVO_EMAIL_ERROR:", error);
+    throw error;
+  }
 };
