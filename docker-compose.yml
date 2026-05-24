@@ -6,8 +6,9 @@ services:
     restart: unless-stopped
     ports:
       - "5000:5000"
-    env_file:
-      - ./backend/.env.production
+    environment:
+      NODE_ENV: production
+      PORT: 5000
     networks:
       - flyeasy-network
 
@@ -18,8 +19,6 @@ services:
     restart: unless-stopped
     ports:
       - "3000:80"
-    env_file:
-      - ./frontend/.env.production
     depends_on:
       - backend
     networks:
