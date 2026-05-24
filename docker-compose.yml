@@ -1,0 +1,29 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: flyeasy-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/.env.production
+    networks:
+      - flyeasy-network
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    env_file:
+      - ./frontend/.env.production
+    depends_on:
+      - backend
+    networks:
+      - flyeasy-network
+
+networks:
+  flyeasy-network:
+    driver: bridge
