@@ -15,13 +15,16 @@ pipeline {
 
         stage("Stop existing containers") {
             steps {
-                sh "docker compose down || true"
+                sh '''
+                    docker-compose down || true
+                    docker-compose up --build -d
+                '''
             }
         }
 
         stage("Build and deploy") {
             steps {
-                sh "docker compose up --build -d"
+                sh "docker-compose up --build -d"
             }
         }
 
