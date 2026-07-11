@@ -1,0 +1,23 @@
+# Terraform
+terraform/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Sonar
+.scannerwork/
+
+# Keys
+flyeasy-key
+flyeasy-key.pub
+*.pem
+
+# Environment
+**/.env
+**/.env.*
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log

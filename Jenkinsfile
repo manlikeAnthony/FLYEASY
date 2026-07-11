@@ -1,4 +1,5 @@
 pipeline {
+
     agent any
 
     environment {
@@ -13,43 +14,50 @@ pipeline {
             }
         }
 
-        stage("Stop existing containers") {
+
+        stage("Build Docker Images") {
             steps {
                 sh '''
-                    docker-compose down || true
-                    docker-compose up --build -d
+                    docker compose build
                 '''
             }
         }
 
-        stage("Build and deploy") {
+
+        stage("Deploy with Ansible") {
             steps {
-                sh "docker-compose up --build -d"
+                sh '''
+                    ansible-playbook -i ansible/inventory ansible/deploy.yml
+                '''
             }
         }
 
-        stage("Verify running containers") {
+
+        stage("Verify Deployment") {
             steps {
-                sh "docker ps"
+                sh '''
+                    docker ps
+                '''
             }
         }
 
-        stage("Cleanup old images") {
-            steps {
-                sh "docker image prune -f"
-            }
-        }
     }
+
 
     post {
+
         success {
-            echo "Deployment successful!"
+            echo "FlyEasy deployment successful!"
         }
+
         failure {
-            echo "Deployment failed. Check logs."
+            echo "Deployment failed. Check Jenkins logs."
         }
+
         always {
-            echo "Pipeline finished."
+            echo "Pipeline completed."
         }
+
     }
+
 }

@@ -1,0 +1,56 @@
+- hosts: all
+  become: yes
+
+  tasks:
+    - name: Update apt
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+        state: present
+
+    - name: Add ubuntu user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+# - hosts: mongo
+#   become: yes
+
+# tasks:
+
+#   - name: Install MongoDB
+#     apt:
+#       name: mongodb
+#       state: present
+
+#   - name: Start MongoDB
+#     service:
+#       name: mongodb
+#       state: started
+#       enabled: yes
+
+- hosts: webservers
+  become: yes
+
+  tasks:
+    - name: Install Git
+      apt:
+        name: git
+        state: present
+
+    - name: Clone repository
+      git:
+        repo: https://github.com/manlikeAnthony/FLYEASY.git
+        dest: /home/ubuntu/flyeasy
+        force: yes
+
+    - name: Start FlyEasy
+      command:
+        cmd: docker-compose up -d --build
+        chdir: /home/ubuntu/flyeasy
