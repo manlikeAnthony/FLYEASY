@@ -2,14 +2,6 @@
 
 ## Overview
 
-FlyEasy is a full-stack flight booking system that enables users to search for flights, make reservations, and manage bookings. It provides a RESTful backend for data and authentication, and a responsive frontend for search, booking flows, and account management.
-
-## Features
-
-# FlyEasy ✈️
-
-## Overview
-
 FlyEasy is a TypeScript full-stack project providing a backend API and a React frontend. The repository implements a user authentication system (registration, login, email verification, password reset) and a request-management API used to create and manage travel requests.
 
 All API routes are mounted under the `/api/v1` prefix in the backend.
