@@ -12,13 +12,11 @@ output "web_private_ips" {
 }
 
 
-
 output "mongo_public_ip" {
 
   value = aws_instance.mongo.public_ip
 
 }
-
 
 
 output "mongo_private_ip" {
