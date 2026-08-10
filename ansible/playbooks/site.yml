@@ -1,0 +1,14 @@
+---
+- name: Configure all servers
+  hosts: all
+  become: yes
+
+  roles:
+    - docker
+
+- name: Configure web servers
+  hosts: webservers
+  become: yes
+
+  roles:
+    - git
