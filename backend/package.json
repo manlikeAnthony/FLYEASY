@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "test",
+    "test": "jest --runInBand",
     "dev": "nodemon --watch src --ext ts --exec \"ts-node -r tsconfig-paths/register --files src/server.ts\"",
     "build": "tsc",
     "start": "node dist/server.js"
