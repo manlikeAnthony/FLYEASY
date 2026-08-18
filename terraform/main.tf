@@ -1,92 +1,58 @@
-resource "aws_instance" "web" {
+module "vpc" {
+  source = "./modules/vpc"
 
-  count = 2
-
-  ami = var.ami
-
-instance_type = "t3.micro"
-
-key_name = aws_key_pair.flyeasy.key_name
-
-  tags = {
-    Name = "flyeasy-web-${count.index + 1}"
-  }
-
-
-  vpc_security_group_ids = [
-    aws_security_group.flyeasy.id
-  ]
-
+  vpc_cidr             = "10.0.0.0/16"
+  availability_zones   = ["us-east-1a", "us-east-1b"]
+  public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+  private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24"]
 }
 
+module "security" {
+  source = "./modules/security"
 
-resource "aws_instance" "mongo" {
-  ami = var.ami
-
-    instance_type = "t3.micro"
-    
-    key_name = aws_key_pair.flyeasy.key_name
-
-  tags = {
-    Name = "flyeasy-mongo"
-  }
-  vpc_security_group_ids = [
-    aws_security_group.flyeasy.id
-  ]
+  vpc_id = module.vpc.vpc_id
 }
 
+module "iam" {
+  source = "./modules/iam"
+}
 
+module "ecr" {
+  source = "./modules/ecr"
 
-resource "aws_security_group" "flyeasy" {
-  name = "flyeasy-security"
+  repository_name = "flyeasy"
+}
 
-  ingress {
+module "bastion" {
+  source = "./modules/bastion"
 
-    from_port = 22
-    to_port = 22
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  ami_id            = "ami-0c7217cdde317cfec"
+  instance_type     = "t3.micro"
+  subnet_id         = module.vpc.public_subnet_ids[0]
+  security_group_id = module.security.bastion_security_group_id
+  key_name          = aws_key_pair.flyeasy.key_name
+}
 
-  }
+module "eks" {
+  source = "./modules/eks"
 
-  ingress {
+  cluster_name    = "flyeasy-eks"
+  cluster_version = "1.33"
 
-    from_port = 3000
-    to_port = 3000
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  subnet_ids = module.vpc.private_subnet_ids
 
-  }
+  cluster_role_arn = module.iam.eks_cluster_role_arn
+  node_role_arn    = module.iam.eks_node_role_arn
 
-  ingress {
+  node_instance_type = "t3.medium"
 
-    from_port = 5000
-    to_port = 5000
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  desired_nodes = 2
+  min_nodes     = 1
+  max_nodes     = 3
+}
 
-  }
+module "backend" {
+  source = "./modules/backend"
 
-
-
-  ingress {
-
-    from_port = 27017
-    to_port = 27017
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-
-  }
-
-
-
-  egress {
-
-    from_port = 0
-    to_port = 0
-    protocol = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-
-  }
-
+  bucket_name = "flyeasy-terraform-state"
 }

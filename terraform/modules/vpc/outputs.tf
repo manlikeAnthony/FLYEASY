@@ -1,24 +1,24 @@
 output "vpc_id" {
-  description = "ID of the FlyEasy VPC"
-  value       = module.vpc.vpc_id
+  description = "ID of the VPC"
+  value       = aws_vpc.this.id
 }
 
 output "public_subnet_ids" {
   description = "IDs of the public subnets"
-  value       = module.vpc.public_subnet_ids
+  value       = aws_subnet.public[*].id
 }
 
 output "private_subnet_ids" {
   description = "IDs of the private subnets"
-  value       = module.vpc.private_subnet_ids
+  value       = aws_subnet.private[*].id
 }
 
 output "internet_gateway_id" {
   description = "ID of the Internet Gateway"
-  value       = module.vpc.internet_gateway_id
+  value       = aws_internet_gateway.this.id
 }
 
 output "nat_gateway_id" {
   description = "ID of the NAT Gateway"
-  value       = module.vpc.nat_gateway_id
+  value       = aws_nat_gateway.this.id
 }
