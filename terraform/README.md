@@ -351,7 +351,7 @@ The Terraform infrastructure implementation covers:
 * S3 remote Terraform state
 * Reusable Terraform modules
 * Infrastructure documentation
-* Architecture documentation
+* Architecture diagram
 
 ---
 
