@@ -102,7 +102,7 @@ pipeline {
             emailext (
                 subject: "SUCCESS: FlyEasy Pipeline #${env.BUILD_NUMBER}",
                 body: "FlyEasy deployed successfully.\n\nBuild: ${env.BUILD_NUMBER}\nImage: ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}\nJob URL: ${env.BUILD_URL}",
-                to: 'you@example.com'
+                to: 'ayomi.kifodah@gmail.com'
             )
         }
         failure {
@@ -110,7 +110,7 @@ pipeline {
             emailext (
                 subject: "FAILED: FlyEasy Pipeline #${env.BUILD_NUMBER}",
                 body: "FlyEasy build/deploy failed.\n\nBuild: ${env.BUILD_NUMBER}\nJob URL: ${env.BUILD_URL}\nCheck console output for details.",
-                to: 'you@example.com'
+                to: 'ayomi.kifodah@gmail.com'
             )
         }
         always {
