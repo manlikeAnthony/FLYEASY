@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+        disableConcurrentBuilds()
+    }
+
     parameters {
         string(name: 'IMAGE_TAG_OVERRIDE', defaultValue: '', description: 'Optional custom image tag. Leave blank to use the Jenkins build number.')
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip the Run Tests stage (use only for emergency/debug builds).')
@@ -95,14 +99,13 @@ pipeline {
                     usernameVariable: 'AWS_ACCESS_KEY_ID',
                     passwordVariable: 'AWS_SECRET_ACCESS_KEY'
                 )]) {
-                    sh '''
-                        kubectl delete secret ecr-secret -n ${K8S_NAMESPACE} --ignore-not-found
-
+                      sh '''
                         kubectl create secret docker-registry ecr-secret \
                             -n ${K8S_NAMESPACE} \
                             --docker-server=${ECR_REGISTRY} \
                             --docker-username=AWS \
-                            --docker-password=$(aws ecr get-login-password --region ${AWS_REGION})
+                            --docker-password=$(aws ecr get-login-password --region ${AWS_REGION}) \
+                            --dry-run=client -o yaml | kubectl apply -f -
                     '''
                 }
             }
