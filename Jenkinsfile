@@ -15,6 +15,7 @@ pipeline {
         ECR_REPO               = 'flyeasy-backend'
         ECR_REGISTRY            = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         IMAGE_TAG                = "${params.IMAGE_TAG_OVERRIDE?.trim() ? params.IMAGE_TAG_OVERRIDE.trim() : env.BUILD_NUMBER}"
+	K8S_NAMESPACE             = "${params.K8S_NAMESPACE}"
     }
 
     stages {
@@ -95,10 +96,10 @@ pipeline {
                     passwordVariable: 'AWS_SECRET_ACCESS_KEY'
                 )]) {
                     sh '''
-                        kubectl delete secret ecr-secret -n ${params.K8S_NAMESPACE} --ignore-not-found
+                        kubectl delete secret ecr-secret -n ${K8S_NAMESPACE} --ignore-not-found
 
                         kubectl create secret docker-registry ecr-secret \
-                            -n ${params.K8S_NAMESPACE} \
+                            -n ${K8S_NAMESPACE} \
                             --docker-server=${ECR_REGISTRY} \
                             --docker-username=AWS \
                             --docker-password=$(aws ecr get-login-password --region ${AWS_REGION})
@@ -112,9 +113,9 @@ pipeline {
                 sh '''
                     kubectl set image deployment/flyeasy-backend \
                         flyeasy-backend=${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG} \
-                        -n ${params.K8S_NAMESPACE}
+                        -n ${K8S_NAMESPACE}
 
-                    kubectl rollout status deployment/flyeasy-backend -n ${params.K8S_NAMESPACE} --timeout=120s
+                    kubectl rollout status deployment/flyeasy-backend -n ${K8S_NAMESPACE} --timeout=120s
                 '''
             }
         }
@@ -122,8 +123,8 @@ pipeline {
         stage("Verify Deployment") {
             steps {
                 sh '''
-                    kubectl get pods -n ${params.K8S_NAMESPACE}
-                    kubectl logs -n ${params.K8S_NAMESPACE} -l app=flyeasy-backend --tail=30
+                    kubectl get pods -n ${K8S_NAMESPACE}
+                    kubectl logs -n ${K8S_NAMESPACE} -l app=flyeasy-backend --tail=30
                 '''
             }
         }
