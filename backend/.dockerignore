@@ -1,6 +1,11 @@
 node_modules
-dist
-.git
-.env
 npm-debug.log
-/src/auth/__tests__/
+dist
+.env
+.env.*
+logs
+.git
+*.md
+tests
+jest.config.ts
+jest.setup.ts
