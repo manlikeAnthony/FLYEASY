@@ -1,7 +1,6 @@
 pipeline {
 agent any
 
-```
 options {
     disableConcurrentBuilds()
     timestamps()
@@ -436,6 +435,5 @@ post {
         echo "FlyEasy pipeline completed."
     }
 }
-```
 
 }
