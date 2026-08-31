@@ -44,6 +44,15 @@ app.get("/", (_req, res) => {
   });
 });
 
+app.get("/api/v1/health", (_req, res) => {
+  res.status(200).json({
+    status: "success",
+    message: "FlyEasy API is healthy",
+  });
+});
+
+// Routes
+
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/requests", requestRouter);
