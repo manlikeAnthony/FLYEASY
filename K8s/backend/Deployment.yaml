@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: REPLACE_ME_ECR_REPO/flyeasy-backend:latest
+          image: 380267955461.dkr.ecr.us-east-1.amazonaws.com/flyeasy:backend-latest
           ports:
             - name: http
               containerPort: 5000
@@ -42,14 +42,14 @@ spec:
 
           readinessProbe:
             httpGet:
-              path: /health
+              path: /
               port: http
             initialDelaySeconds: 10
             periodSeconds: 10
 
           livenessProbe:
             httpGet:
-              path: /health
+              path: /
               port: http
             initialDelaySeconds: 20
             periodSeconds: 20

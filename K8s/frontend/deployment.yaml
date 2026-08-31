@@ -19,16 +19,9 @@ spec:
         - name: frontend
           # Replace with your ECR image URI, e.g.:
           # 123456789012.dkr.ecr.us-east-1.amazonaws.com/flyeasy-frontend:latest
-          image: REPLACE_ME_ECR_REPO/flyeasy-frontend:latest
+          image: 380267955461.dkr.ecr.us-east-1.amazonaws.com/flyeasy:frontend-latest
           ports:
             - containerPort: 80
-          env:
-            # If your frontend is built to call the backend via a runtime env var
-            - name: API_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: backend-config
-                  key: BACKEND_INTERNAL_URL
           resources:
             requests:
               cpu: "50m"

@@ -21,7 +21,9 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
   "https://flyeasy-ng-ui.netlify.app",
-];
+  "https://flyeasy.jade2solutions.com",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
 
 app.use(
   cors({

@@ -3,36 +3,142 @@ pipeline {
 
     options {
         disableConcurrentBuilds()
+        timestamps()
     }
 
     parameters {
-        string(name: 'IMAGE_TAG_OVERRIDE', defaultValue: '', description: 'Optional custom image tag. Leave blank to use the Jenkins build number.')
-        booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip the Run Tests stage (use only for emergency/debug builds).')
-        string(name: 'K8S_NAMESPACE', defaultValue: 'flyeasy', description: 'Kubernetes namespace to deploy to.')
-        string(name: 'NOTIFY_EMAIL', defaultValue: 'ayomi.kifodah@gmail.com', description: 'Email address to notify on build success/failure.')
+        string(
+            name: 'IMAGE_TAG_OVERRIDE',
+            defaultValue: '',
+            description: 'Optional custom image tag. Leave blank to use the Jenkins build number.'
+        )
+
+        booleanParam(
+            name: 'SKIP_TESTS',
+            defaultValue: false,
+            description: 'Skip backend tests. Use only for emergency/debug builds.'
+        )
+
+        string(
+            name: 'NOTIFY_EMAIL',
+            defaultValue: 'ayomi.kifodah@gmail.com',
+            description: 'Email address for build notifications.'
+        )
     }
 
     environment {
-        COMPOSE_PROJECT_NAME = 'flyeasy'
-        AWS_REGION            = 'us-east-2'
-        AWS_ACCOUNT_ID         = '847776737366'
-        ECR_REPO               = 'flyeasy-backend'
-        ECR_REGISTRY            = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        IMAGE_TAG                = "${params.IMAGE_TAG_OVERRIDE?.trim() ? params.IMAGE_TAG_OVERRIDE.trim() : env.BUILD_NUMBER}"
-	K8S_NAMESPACE             = "${params.K8S_NAMESPACE}"
+        AWS_REGION      = 'us-east-1'
+        AWS_ACCOUNT_ID  = '380267955461'
+
+        ECR_REPO        = 'flyeasy'
+        ECR_REGISTRY    = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+        K8S_CLUSTER     = 'flyeasy-eks'
+        K8S_NAMESPACE   = 'flyeasy'
+        KUBECONFIG      = '/var/lib/jenkins/.kube/config'
+
+        IMAGE_TAG       = "${params.IMAGE_TAG_OVERRIDE?.trim() ? params.IMAGE_TAG_OVERRIDE.trim() : env.BUILD_NUMBER}"
     }
 
     stages {
 
-        stage("Pull from GitHub") {
+
+        stage('Checkout') {
             steps {
                 checkout scm
+
+                sh '''
+                    echo "=========================================="
+                    echo "FlyEasy CI/CD Pipeline"
+                    echo "=========================================="
+                    echo "Build:       ${BUILD_NUMBER}"
+                    echo "Git commit:  $(git rev-parse --short HEAD)"
+                    echo "AWS Region:  ${AWS_REGION}"
+                    echo "ECR Repo:    ${ECR_REGISTRY}/${ECR_REPO}"
+                    echo "EKS Cluster: ${K8S_CLUSTER}"
+                    echo "Namespace:   ${K8S_NAMESPACE}"
+                    echo "Image tag:   ${IMAGE_TAG}"
+                    echo "=========================================="
+                '''
             }
         }
 
-        stage("Install Dependencies") {
+
+
+
+        stage('Verify AWS Access') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-ecr-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+
+                        echo "Checking AWS credentials..."
+
+                        aws sts get-caller-identity
+
+                        echo "Checking ECR repository..."
+
+                        aws ecr describe-repositories \
+                            --repository-names "${ECR_REPO}" \
+                            --region "${AWS_REGION}"
+
+                        echo "AWS access verified."
+                    '''
+                }
+            }
+        }
+
+
+
+        stage('Configure EKS Access') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-ecr-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+
+                        echo "Configuring EKS access..."
+
+                        mkdir -p "$(dirname "${KUBECONFIG}")"
+
+                        aws eks update-kubeconfig \
+                            --region "${AWS_REGION}" \
+                            --name "${K8S_CLUSTER}" \
+                            --kubeconfig "${KUBECONFIG}"
+
+                        echo "Testing Kubernetes access..."
+
+                        kubectl get nodes
+
+                        echo "Checking FlyEasy namespace..."
+
+                        kubectl get namespace "${K8S_NAMESPACE}"
+
+                        echo "EKS access verified."
+                    '''
+                }
+            }
+        }
+
+
+
+
+        stage('Install Backend Dependencies') {
             steps {
                 sh '''
+                    set -e
+
                     docker run --rm \
                         -v "$WORKSPACE/backend":/app \
                         -w /app \
@@ -42,12 +148,19 @@ pipeline {
             }
         }
 
-        stage("Run Tests") {
+
+
+        stage('Run Backend Tests') {
             when {
-                expression { return !params.SKIP_TESTS }
+                expression {
+                    return !params.SKIP_TESTS
+                }
             }
+
             steps {
                 sh '''
+                    set -e
+
                     docker run --rm \
                         -v "$WORKSPACE/backend":/app \
                         -w /app \
@@ -57,101 +170,269 @@ pipeline {
             }
         }
 
-        stage("Build Docker Image") {
+
+        stage('Build Backend Image') {
             steps {
                 sh '''
-                    docker compose build
+                    set -e
+
+                    docker build \
+                        -t "${ECR_REGISTRY}/${ECR_REPO}:backend-${IMAGE_TAG}" \
+                        -t "${ECR_REGISTRY}/${ECR_REPO}:backend-latest" \
+                        ./backend
                 '''
             }
         }
 
-        stage("Tag Image for ECR") {
+
+        stage('Build Frontend Image') {
             steps {
                 sh '''
-                    docker tag flyeasy-backend:latest ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}
-                    docker tag flyeasy-backend:latest ${ECR_REGISTRY}/${ECR_REPO}:latest
+                    set -e
+
+                    docker build \
+                        -t "${ECR_REGISTRY}/${ECR_REPO}:frontend-${IMAGE_TAG}" \
+                        -t "${ECR_REGISTRY}/${ECR_REPO}:frontend-latest" \
+                        ./frontend
                 '''
             }
         }
 
-        stage("Push Image to Amazon ECR") {
+
+        stage('Login to ECR') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'aws-ecr-creds',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-ecr-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
                     sh '''
-                        aws ecr get-login-password --region ${AWS_REGION} | \
-                            docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                        set -e
 
-                        docker push ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}
-                        docker push ${ECR_REGISTRY}/${ECR_REPO}:latest
+                        aws ecr get-login-password \
+                            --region "${AWS_REGION}" | \
+                        docker login \
+                            --username AWS \
+                            --password-stdin "${ECR_REGISTRY}"
                     '''
                 }
             }
         }
 
-        stage("Refresh K8s ECR Pull Secret") {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'aws-ecr-creds',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )]) {
-                      sh '''
-                        kubectl create secret docker-registry ecr-secret \
-                            -n ${K8S_NAMESPACE} \
-                            --docker-server=${ECR_REGISTRY} \
-                            --docker-username=AWS \
-                            --docker-password=$(aws ecr get-login-password --region ${AWS_REGION}) \
-                            --dry-run=client -o yaml | kubectl apply -f -
-                    '''
-                }
-            }
-        }
 
-        stage("Deploy to Kubernetes") {
+
+        stage('Push Backend Image') {
             steps {
                 sh '''
-                    kubectl set image deployment/flyeasy-backend \
-                        flyeasy-backend=${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG} \
-                        -n ${K8S_NAMESPACE}
+                    set -e
 
-                    kubectl rollout status deployment/flyeasy-backend -n ${K8S_NAMESPACE} --timeout=120s
+                    docker push \
+                        "${ECR_REGISTRY}/${ECR_REPO}:backend-${IMAGE_TAG}"
+
+                    docker push \
+                        "${ECR_REGISTRY}/${ECR_REPO}:backend-latest"
                 '''
             }
         }
 
-        stage("Verify Deployment") {
+
+
+
+        stage('Push Frontend Image') {
             steps {
                 sh '''
-                    kubectl get pods -n ${K8S_NAMESPACE}
-                    kubectl logs -n ${K8S_NAMESPACE} -l app=flyeasy-backend --tail=30
+                    set -e
+
+                    docker push \
+                        "${ECR_REGISTRY}/${ECR_REPO}:frontend-${IMAGE_TAG}"
+
+                    docker push \
+                        "${ECR_REGISTRY}/${ECR_REPO}:frontend-latest"
+                '''
+            }
+        }
+
+
+        stage('Deploy Backend') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "Deploying backend..."
+
+                    kubectl set image \
+                        deployment/backend-deployment \
+                        backend="${ECR_REGISTRY}/${ECR_REPO}:backend-${IMAGE_TAG}" \
+                        -n "${K8S_NAMESPACE}"
+
+                    kubectl rollout status \
+                        deployment/backend-deployment \
+                        -n "${K8S_NAMESPACE}" \
+                        --timeout=180s
+                '''
+            }
+        }
+
+
+        stage('Deploy Frontend') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "Deploying frontend..."
+
+                    kubectl set image \
+                        deployment/frontend-deployment \
+                        frontend="${ECR_REGISTRY}/${ECR_REPO}:frontend-${IMAGE_TAG}" \
+                        -n "${K8S_NAMESPACE}"
+
+                    kubectl rollout status \
+                        deployment/frontend-deployment \
+                        -n "${K8S_NAMESPACE}" \
+                        --timeout=180s
+                '''
+            }
+        }
+
+
+        stage('Verify Deployment') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "=========================================="
+                    echo "Kubernetes Deployments"
+                    echo "=========================================="
+
+                    kubectl get deployments \
+                        -n "${K8S_NAMESPACE}"
+
+                    echo ""
+                    echo "=========================================="
+                    echo "Pods"
+                    echo "=========================================="
+
+                    kubectl get pods \
+                        -n "${K8S_NAMESPACE}" \
+                        -o wide
+
+                    echo ""
+                    echo "=========================================="
+                    echo "Services"
+                    echo "=========================================="
+
+                    kubectl get services \
+                        -n "${K8S_NAMESPACE}"
+
+                    echo ""
+                    echo "=========================================="
+                    echo "Backend Image"
+                    echo "=========================================="
+
+                    kubectl get deployment backend-deployment \
+                        -n "${K8S_NAMESPACE}" \
+                        -o jsonpath='{.spec.template.spec.containers[0].image}'
+
+                    echo ""
+
+                    echo ""
+                    echo "=========================================="
+                    echo "Frontend Image"
+                    echo "=========================================="
+
+                    kubectl get deployment frontend-deployment \
+                        -n "${K8S_NAMESPACE}" \
+                        -o jsonpath='{.spec.template.spec.containers[0].image}'
+
+                    echo ""
                 '''
             }
         }
     }
 
+
     post {
+
         success {
-            echo "FlyEasy deployment successful! Image tag: ${IMAGE_TAG}"
-            emailext (
+            echo """
+            ==========================================
+            FLYEASY DEPLOYMENT SUCCESSFUL
+            ==========================================
+
+            Build: ${env.BUILD_NUMBER}
+
+            Backend:
+            ${env.ECR_REGISTRY}/${env.ECR_REPO}:backend-${env.IMAGE_TAG}
+
+            Frontend:
+            ${env.ECR_REGISTRY}/${env.ECR_REPO}:frontend-${env.IMAGE_TAG}
+
+            Kubernetes:
+            Cluster:   ${env.K8S_CLUSTER}
+            Namespace: ${env.K8S_NAMESPACE}
+
+            ==========================================
+            """
+
+            emailext(
                 subject: "SUCCESS: FlyEasy Pipeline #${env.BUILD_NUMBER}",
-                body: "FlyEasy deployed successfully.\n\nBuild: ${env.BUILD_NUMBER}\nImage: ${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}\nNamespace: ${params.K8S_NAMESPACE}\nJob URL: ${env.BUILD_URL}",
+                body: """
+                FlyEasy deployment completed successfully.
+
+                Build: ${env.BUILD_NUMBER}
+
+                Backend Image:
+                ${env.ECR_REGISTRY}/${env.ECR_REPO}:backend-${env.IMAGE_TAG}
+
+                Frontend Image:
+                ${env.ECR_REGISTRY}/${env.ECR_REPO}:frontend-${env.IMAGE_TAG}
+
+                EKS Cluster:
+                ${env.K8S_CLUSTER}
+
+                Namespace:
+                ${env.K8S_NAMESPACE}
+
+                Jenkins:
+                ${env.BUILD_URL}
+                """,
                 to: "${params.NOTIFY_EMAIL}"
             )
         }
+
         failure {
-            echo "Deployment failed. Check Jenkins logs."
-            emailext (
+            echo """
+            ==========================================
+            FLYEASY DEPLOYMENT FAILED
+            ==========================================
+
+            Build: ${env.BUILD_NUMBER}
+
+            Check the Jenkins console output.
+
+            ==========================================
+            """
+
+            emailext(
                 subject: "FAILED: FlyEasy Pipeline #${env.BUILD_NUMBER}",
-                body: "FlyEasy build/deploy failed.\n\nBuild: ${env.BUILD_NUMBER}\nJob URL: ${env.BUILD_URL}\nCheck console output for details.",
+                body: """
+                FlyEasy CI/CD pipeline failed.
+
+                Build: ${env.BUILD_NUMBER}
+
+                Jenkins:
+                ${env.BUILD_URL}
+
+                Check the Jenkins console output for the failed stage.
+                """,
                 to: "${params.NOTIFY_EMAIL}"
             )
         }
+
         always {
-            echo "Pipeline completed."
+            echo "FlyEasy pipeline completed."
         }
     }
 }
