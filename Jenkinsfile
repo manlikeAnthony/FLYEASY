@@ -27,17 +27,14 @@ parameters {
 }
 
 environment {
-    AWS_REGION      = 'us-east-1'
-    AWS_ACCOUNT_ID  = '380267955461'
-
-    ECR_REPO        = 'flyeasy'
-    ECR_REGISTRY    = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-
-    K8S_CLUSTER     = 'flyeasy-eks'
-    K8S_NAMESPACE   = 'flyeasy'
-    KUBECONFIG      = '/var/lib/jenkins/.kube/config'
-
-    IMAGE_TAG       = "${params.IMAGE_TAG_OVERRIDE?.trim() ? params.IMAGE_TAG_OVERRIDE.trim() : env.BUILD_NUMBER}"
+    AWS_REGION = 'us-east-1'
+    AWS_ACCOUNT_ID = '380267955461'
+    ECR_REPO = 'flyeasy'
+    ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+    K8S_CLUSTER = 'flyeasy-eks'
+    K8S_NAMESPACE = 'flyeasy'
+    KUBECONFIG = '/var/lib/jenkins/.kube/config'
+    IMAGE_TAG = "${params.IMAGE_TAG_OVERRIDE?.trim() ? params.IMAGE_TAG_OVERRIDE.trim() : env.BUILD_NUMBER}"
 }
 
 stages {
@@ -75,11 +72,9 @@ stages {
                     set -e
 
                     echo "Checking AWS credentials..."
-
                     aws sts get-caller-identity
 
                     echo "Checking ECR repository..."
-
                     aws ecr describe-repositories \
                         --repository-names "${ECR_REPO}" \
                         --region "${AWS_REGION}"
@@ -102,8 +97,6 @@ stages {
                 sh '''
                     set -e
 
-                    echo "Configuring EKS access..."
-
                     mkdir -p "$(dirname "${KUBECONFIG}")"
 
                     aws eks update-kubeconfig \
@@ -111,15 +104,8 @@ stages {
                         --name "${K8S_CLUSTER}" \
                         --kubeconfig "${KUBECONFIG}"
 
-                    echo "Testing Kubernetes access..."
-
                     kubectl get nodes
-
-                    echo "Checking FlyEasy namespace..."
-
                     kubectl get namespace "${K8S_NAMESPACE}"
-
-                    echo "EKS access verified."
                 '''
             }
         }
@@ -354,7 +340,6 @@ stages {
 }
 
 post {
-
     success {
         echo """
         ==========================================
