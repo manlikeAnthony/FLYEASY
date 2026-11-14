@@ -53,14 +53,6 @@ api.interceptors.response.use(
       } catch (e) {
         // ignore
       }
-      // ensure redirect
-      try {
-        if (window.location.pathname !== "/login") {
-          window.location.assign("/login");
-        }
-      } catch (e) {
-        // ignore
-      }
     }
     return Promise.reject(error);
   },

@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import ContactPage from "./pages/ContactPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import RequestWorkspace from "./pages/RequestWorkspace";
@@ -19,9 +20,22 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import AuthGuard from "./components/AuthGuard";
 import RoleGuard from "./components/RoleGuard";
 
+function SessionRedirect() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const redirectToLogin = () => navigate("/login", { replace: true });
+    window.addEventListener("logout", redirectToLogin);
+    return () => window.removeEventListener("logout", redirectToLogin);
+  }, [navigate]);
+
+  return null;
+}
+
 function App() {
   return (
     <BrowserRouter>
+      <SessionRedirect />
       <MainLayout>
         <Routes>
           <Route path="/contact" element={<ContactPage />} />

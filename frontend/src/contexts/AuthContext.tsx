@@ -30,11 +30,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(null);
       localStorage.removeItem("fe_user");
       clearStoredAccessToken();
-      try {
-        window.location.assign("/login");
-      } catch (e) {
-        /* ignore */
-      }
     };
 
     window.addEventListener("logout", onLogout);
@@ -50,11 +45,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
     localStorage.removeItem("fe_user");
     clearStoredAccessToken();
-    try {
-      window.location.assign("/login");
-    } catch (e) {
-      /* ignore */
-    }
   };
 
   return (
