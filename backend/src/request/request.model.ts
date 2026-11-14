@@ -1,9 +1,16 @@
-import { Schema, model, Document } from "mongoose";
-import crypto from "crypto";
+import { Schema, model, Document, Types } from "mongoose";
+
+
+import type { NotificationEvent } from "../types/notification.types";
 
 export type RequestStatus = "pending" | "processing" | "completed" | "rejected";
 
 export interface RequestDocument extends Document {
+  notificationEvents: NotificationEvent[];
+  whatsappOptIn?: boolean;
+  messages: { author: string; role: string; text: string; createdAt: Date }[];
+  history: { status: string; createdAt: Date }[];
+  quote?: { airline: string; amount: number; currency: string; details: string; decision: string };
   name: string;
   from: string;
   to: string;
@@ -14,7 +21,7 @@ export interface RequestDocument extends Document {
   status: RequestStatus;
   trackingId: string;
 
-  user?: Schema.Types.ObjectId;
+  user?: Types.ObjectId;
   claimedAt?: Date;
 
   createdAt: Date;
@@ -23,6 +30,11 @@ export interface RequestDocument extends Document {
 
 const RequestSchema = new Schema<RequestDocument>(
   {
+    notificationEvents: [{ eventId: String, kind: String, actorId: String, actorRole: String, createdAt: Date, publishedAt: { type: Date, default: null } }],
+    whatsappOptIn: { type: Boolean, default: false },
+    messages: [{ author: String, role: String, text: String, createdAt: { type: Date, default: Date.now } }],
+    history: [{ status: String, createdAt: { type: Date, default: Date.now } }],
+    quote: { airline: String, amount: Number, currency: String, details: String, decision: { type: String, enum: ["pending", "accepted", "declined"] } },
     name: {
       type: String,
       required: true,
@@ -79,6 +91,8 @@ const RequestSchema = new Schema<RequestDocument>(
   },
   { timestamps: true },
 );
+
+RequestSchema.index({ "notificationEvents.publishedAt": 1 });
 
 export const Request = model<RequestDocument>("Request", RequestSchema);
 export default Request;

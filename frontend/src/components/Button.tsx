@@ -10,10 +10,12 @@ export default function Button({
   variant = "primary",
   loading,
   className = "",
+  style: customStyle,
+  disabled,
   ...props
 }: ButtonProps) {
   const base =
-    "inline-flex items-center justify-center px-4 py-2 rounded-lg font-semibold transition-colors duration-200";
+    "inline-flex items-center justify-center px-5 py-3 rounded-lg text-sm font-semibold transition-default hover:-translate-y-0.5 disabled:hover:translate-y-0";
   // map variant to inline style using CSS variables (single source of truth)
   const style: React.CSSProperties = {};
   if (variant === "primary") {
@@ -36,8 +38,8 @@ export default function Button({
   return (
     <button
       className={`${base} ${className}`}
-      style={style}
-      disabled={loading || props.disabled}
+      style={{ ...style, ...customStyle }}
+      disabled={loading || disabled}
       {...props}
     >
       {loading ? "Loading..." : children}

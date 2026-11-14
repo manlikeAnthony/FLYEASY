@@ -2,7 +2,8 @@ import { Request, Response } from "express";
 import crypto from "crypto";
 import User from "./user.model";
 import Token, { TokenDocument } from "./token.model";
-import { attachCookiesToResponse, createTokenUser } from "../utils";
+import { attachCookiesToResponse, clearAuthCookies } from "../utils";
+import { verifyToken } from "../utils/jwt";
 import { CustomError } from "../errors/CustomError";
 import { AppCodes } from "../errors/AppCodes";
 import { HttpCodes } from "../errors/HttpCodes";
@@ -59,27 +60,32 @@ export const login = async (req: Request, res: Response) => {
     userAgent: req.headers["user-agent"],
   });
 
-  attachCookiesToResponse({ res, user: tokenUser, refreshToken });
+  const accessToken = attachCookiesToResponse({ res, user: tokenUser, refreshToken });
 
   res.status(HttpCodes.OK).json(
     successResponse({
       message: "User logged in successfully",
-      data: tokenUser,
+      data: { user: tokenUser, accessToken },
       code: AppCodes.AUTH_LOGIN_SUCCESS,
     }),
   );
 };
 
 export const logout = async (req: Request, res: Response) => {
-  await logoutService(req.user?.userId);
-
-  const cookieOptions = {
-    httpOnly: true,
-    expires: new Date(0),
-  };
-
-  res.cookie("accessToken", "logout", cookieOptions);
-  res.cookie("refreshToken", "logout", cookieOptions);
+  let refreshToken: string | undefined;
+  try {
+    const refreshJwt = req.cookies?.refreshToken;
+    if (refreshJwt) {
+      const payload = verifyToken<{
+        refreshToken?: string;
+      }>(refreshJwt);
+      refreshToken = payload.refreshToken;
+    }
+  } catch {
+    // A missing/expired refresh cookie must not prevent local sign-out.
+  }
+  await logoutService(req.user?.userId, refreshToken);
+  clearAuthCookies(res);
 
   res.status(HttpCodes.OK).json(
     successResponse({

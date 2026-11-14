@@ -17,12 +17,12 @@ export const getAdminMetrics = async (days = 14) => {
 };
 
 export const getMyRequests = async () => {
-  const res = await api.get("/requests/my");
+  const res = await api.get("/requests/my?limit=100");
   return res.data; // expected shape: { data: FlightRequest[] }
 };
 
-export const claimRequest = async (trackingId: string) => {
-  const res = await api.post(`/requests/claim/${trackingId}`);
+export const claimRequest = async (trackingId: string, contact?: string) => {
+  const res = await api.post(`/requests/claim/${encodeURIComponent(trackingId)}`, { contact });
   return res.data;
 };
 

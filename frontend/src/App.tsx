@@ -1,4 +1,8 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import ContactPage from "./pages/ContactPage";
+import NotificationsPage from "./pages/NotificationsPage";
+import RequestWorkspace from "./pages/RequestWorkspace";
+import AdminFlightSearch from "./pages/AdminFlightSearch";
 import MainLayout from "./layouts/MainLayout";
 import Home from "./pages/Home";
 import BookFlight from "./pages/BookFlight";
@@ -20,7 +24,12 @@ function App() {
     <BrowserRouter>
       <MainLayout>
         <Routes>
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/notifications" element={<AuthGuard><NotificationsPage /></AuthGuard>} />
           <Route path="/" element={<Home />} />
+          <Route path="/workspace/:id" element={<AuthGuard><RequestWorkspace /></AuthGuard>} />
+          <Route path="/admin/flights" element={<AuthGuard><RoleGuard allowedRoles={["ADMIN"]}><AdminFlightSearch /></RoleGuard></AuthGuard>} />
+          <Route path="/my/new" element={<AuthGuard><BookFlight /></AuthGuard>} />
           <Route path="/book" element={<BookFlight />} />
           <Route
             path="/requests"

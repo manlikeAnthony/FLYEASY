@@ -1,222 +1,30 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
-import Input from "./Input";
-import Button from "./Button";
-import Card from "./Card";
-import type { FlightRequestForm } from "../types/requests";
-import { createFlightRequest } from "../services/requests";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Check, CheckCheck, Plane, ShieldCheck } from "lucide-react";
 import type { AxiosError } from "axios";
-
-type CreateRequestResponse = {
-  id: string;
-  trackingId: string;
-  status: string;
-};
-
-type ApiErrorPayload = {
-  message?: string;
-  code?: string;
-};
+import { useAuth } from "../contexts/AuthContext";
+import AirportPicker from "./AirportPicker";
+import { createFlightRequest } from "../services/requests";
+import type { FlightRequestForm } from "../types/requests";
 
 export default function RequestForm() {
-  const [formData, setFormData] = useState<FlightRequestForm>({
-    name: "",
-    from: "",
-    to: "",
-    date: "",
-    budget: "",
-    contact: "",
-  });
-  const [createdRequest, setCreatedRequest] =
-    useState<CreateRequestResponse | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const {user}=useAuth();const [params]=useSearchParams();const cache=useQueryClient();
+  const [whatsappOptIn,setWhatsappOptIn]=useState(false);
+  const [step,setStep]=useState(0); const [copied,setCopied]=useState(false);
+  const [form,setForm]=useState<FlightRequestForm>({name:user?.name||"",contact:user?.email||"",from:params.get("from")||"",to:params.get("to")||"",date:params.get("date")||""});
+  const field=(key:keyof FlightRequestForm,value:string)=>setForm(previous=>({...previous,[key]:value}));
+  const mutation=useMutation({mutationFn:()=>createFlightRequest({...form,whatsappOptIn}) as Promise<{id:string;trackingId:string;status:string}>,onSuccess:()=>{cache.invalidateQueries({queryKey:["my-requests"]});cache.invalidateQueries({queryKey:["admin-requests-metrics"]});}});
+  const error=(mutation.error as AxiosError<{message:string}>)?.response?.data?.message;
 
-  const requestMutation = useMutation({
-    mutationFn: async (data: FlightRequestForm) => {
-      const response = await createFlightRequest({
-        ...data,
-        budget: data.budget ? Number(data.budget) : undefined,
-      });
-      return response as CreateRequestResponse;
-    },
-    onSuccess: (response) => {
-      setCreatedRequest(response);
-      setErrorMessage(null);
-      setCopyMessage(null);
-    },
-    onError: (error: unknown) => {
-      const axiosError = error as AxiosError<ApiErrorPayload>;
-      setErrorMessage(
-        axiosError.response?.data?.message ?? "Failed to submit request",
-      );
-    },
-  });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-    setCopyMessage(null);
-    requestMutation.mutate(formData);
-  };
-
-  const handleCopyTrackingId = async () => {
-    if (!createdRequest?.trackingId) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(createdRequest.trackingId);
-      setCopyMessage("Tracking ID copied to clipboard");
-    } catch {
-      setCopyMessage("Unable to copy tracking ID. Please copy it manually.");
-    }
-  };
-
-  const formatStatus = (status: string) =>
-    status.charAt(0).toUpperCase() + status.slice(1);
-
-  if (createdRequest) {
-    return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <div className="space-y-6 text-center">
-          <div className="space-y-2">
-            <p className="text-sm font-medium uppercase tracking-wide text-green-600">
-              Request Created
-            </p>
-            <h3 className="text-3xl font-bold text-gray-900">
-              Your flight request has been submitted
-            </h3>
-            <p className="text-gray-600">
-              Save your tracking ID to check the progress of your request.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 space-y-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                Tracking ID
-              </p>
-              <p className="text-4xl md:text-5xl font-black tracking-[0.2em] text-[#1E4E8C] break-all">
-                {createdRequest.trackingId}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                Status
-              </p>
-              <span className="inline-flex items-center rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-800">
-                {formatStatus(createdRequest.status)}
-              </span>
-            </div>
-          </div>
-
-          {copyMessage && (
-            <div
-              className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
-              role="alert"
-            >
-              {copyMessage}
-            </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button
-              type="button"
-              variant="primary"
-              className="w-full sm:w-auto"
-              onClick={handleCopyTrackingId}
-            >
-              Copy Tracking ID
-            </Button>
-
-            <Link
-              to="/my"
-              className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 rounded-lg font-semibold border border-gray-200 bg-white text-gray-800 hover:shadow-sm transition-colors duration-200"
-            >
-              Go to My Requests
-            </Link>
-          </div>
-        </div>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Full Name"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            required
-          />
-          <Input
-            label="Contact"
-            name="contact"
-            value={formData.contact}
-            onChange={handleChange}
-            required
-          />
-          <Input
-            label="Departure Location"
-            name="from"
-            value={formData.from}
-            onChange={handleChange}
-            required
-          />
-          <Input
-            label="Destination"
-            name="to"
-            value={formData.to}
-            onChange={handleChange}
-            required
-          />
-          <Input
-            label="Travel Date"
-            type="date"
-            name="date"
-            value={formData.date}
-            onChange={handleChange}
-            required
-          />
-          <Input
-            label="Budget (₦)"
-            name="budget"
-            type="number"
-            value={formData.budget}
-            onChange={handleChange}
-          />
-        </div>
-
-        <div className="flex items-center justify-end">
-          <Button
-            type="submit"
-            variant="primary"
-            loading={requestMutation.isPending}
-          >
-            {requestMutation.isPending ? "Submitting..." : "Submit Request"}
-          </Button>
-        </div>
-
-        {requestMutation.isError && (
-          <div
-            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-            role="alert"
-          >
-            {errorMessage ?? "Failed to submit request. Please try again."}
-          </div>
-        )}
-      </form>
-    </Card>
-  );
+  if(mutation.data)return <div className="request-success"><span className="success-orbit"><CheckCheck size={35}/></span><span className="eyebrow">ONE STEP CLOSER TO SOMEWHERE.</span><h2>You dream it.<br/><em>We’re on it.</em></h2><p>Your request is with the Flyeasy team. We’ll find options for your journey and keep you in the loop.</p><div className="short-reference"><span>YOUR TRACKING REFERENCE</span><strong>{mutation.data.trackingId}</strong><button type="button" onClick={async()=>{try{await navigator.clipboard.writeText(mutation.data!.trackingId);setCopied(true);}catch{setCopied(false);}}}>{copied?"Copied ✓":"Copy reference"}</button></div>{!user&&<p className="muted">Keep your reference and the contact you entered. You’ll need both to track or link this request.</p>}<Link className="ink-button" to={user?`/workspace/${mutation.data.id}`:"/track-request"}>{user?"Open your journey":"Track your request"}<ArrowUpRight size={19}/></Link></div>;
+  return <div className="flight-planner"><div className="planner-form"><ol className="planner-steps" aria-label="Request steps">{["Your journey","Your details","Review & send"].map((label,i)=><li key={label} className={step===i?"current":step>i?"complete":""} aria-current={step===i?"step":undefined}><span>{step>i?<Check size={14}/>:i+1}</span><button type="button" disabled={i>step} onClick={()=>setStep(i)}>{label}</button></li>)}</ol>
+  <form onSubmit={e=>{e.preventDefault();if(step<2){const values=new FormData(e.currentTarget);if(step===0){const date=String(values.get("date")||"");if(!date||!Number.isFinite(Date.parse(date))||date<new Date().toISOString().slice(0,10))return;setForm(previous=>({...previous,date}));}else{setForm(previous=>({...previous,name:String(values.get("name")||""),contact:String(values.get("contact")||"")}));}setStep(s=>s+1);}else mutation.mutate();}}>
+    <div key={step} className="planner-step-content">
+    {step===0&&<><span className="eyebrow">01 / THE POSSIBILITIES</span><h2>Where are we taking you?</h2><p>A big adventure or a quick trip home. Let’s start with the basics.</p><div className="planner-route-fields"><AirportPicker label="Taking off from" value={form.from} onChange={value=>field("from",value)}/><Plane className="route-field-plane" size={23}/><AirportPicker label="Touching down in" value={form.to} onChange={value=>field("to",value)}/></div><div className="planner-field-row planner-date-only"><label>When are you going?<input name="date" required type="date" min={new Date().toISOString().slice(0,10)} value={form.date} onInput={e=>field("date",e.currentTarget.value)} onChange={e=>field("date",e.target.value)}/></label></div><p className="planner-hint"><ShieldCheck size={16}/>This is a request, not a reservation. No payment needed.</p></>}
+    {step===1&&<><span className="eyebrow">02 / A LITTLE ABOUT YOU</span><h2>Let’s make it personal.</h2><p>{user?"Your account details are already filled in. Check how you’d like us to reach you.":"Tell us who’s traveling and how we can keep you in the loop."}</p><div className="planner-field-stack"><label>Traveler’s full name<input required maxLength={200} name="name" autoComplete="name" value={form.name} onChange={e=>field("name",e.target.value)} placeholder="As it appears on your travel document"/></label><label>Email or phone number<input required maxLength={200} name="contact" autoComplete="email" value={form.contact} onChange={e=>field("contact",e.target.value)} placeholder="Where can we reach you?"/></label></div>{!user&&/^\+[1-9]\d{7,14}$/.test(form.contact.trim())&&<label className="notification-opt-in"><input type="checkbox" checked={whatsappOptIn} onChange={e=>setWhatsappOptIn(e.target.checked)}/><span>Send me request and quote updates on WhatsApp at this number. I can stop these updates from the tracking page.</span></label>}{user?<div className="account-note"><CheckCheck size={20}/><span>This request will be added to your workspace automatically. <Link to="/notifications">Choose how you receive updates ↗</Link></span></div>:<p className="planner-hint">Already one of us? <Link to="/login">Sign in for a personal workspace ↗</Link></p>}</>}
+    {step===2&&<><span className="eyebrow">03 / READY WHEN YOU ARE</span><h2>Looks like a good plan.</h2><p>One last look before your travel expert takes it from here.</p><dl className="review-details"><div><dt>Journey</dt><dd>{form.from} → {form.to}</dd></div><div><dt>Departure</dt><dd>{new Date(`${form.date}T12:00:00`).toLocaleDateString("en-GB",{dateStyle:"long"})}</dd></div><div><dt>Traveler</dt><dd>{form.name}</dd></div><div><dt>Contact</dt><dd>{form.contact}</dd></div></dl><div className="account-note"><ShieldCheck size={21}/><span>We’ll send you a quote to approve. Your flight is booked only after you give us the go-ahead.</span></div></>}
+    </div>{mutation.isError&&<div className="error-state" role="alert">{error||"We couldn’t send your request. Please try again."}</div>}
+    <div className="planner-actions">{step>0?<button className="back-button" type="button" disabled={mutation.isPending} onClick={()=>setStep(s=>s-1)}><ArrowLeft size={17}/>Back</button>:<span className="muted">A little planning. A lot to look forward to.</span>}<button className="ink-button" disabled={mutation.isPending || (step===0 && !!form.from && form.from.trim().toLowerCase()===form.to.trim().toLowerCase())}>{mutation.isPending?"Sending your plans…":step===2?"Send flight request":"Keep going"}<ArrowRight size={19}/></button></div>
+  </form></div><aside className="journey-preview"><div className="preview-top"><Plane size={23}/><span>YOUR NEXT CHAPTER</span><span>01</span></div><div className="preview-route"><span>FROM</span><h3>{form.from||"Somewhere familiar"}</h3><div className="preview-route-line"><span/><Plane size={22}/><span/></div><span>TO</span><h3>{form.to||"Somewhere new"}</h3></div><div className="preview-perforation"/><div className="preview-meta"><div><span>TAKING OFF</span><strong>{form.date?new Date(`${form.date}T12:00:00`).toLocaleDateString("en-GB",{day:"numeric",month:"short"}):"Your perfect date"}</strong></div><div><span>THE NEXT STEP</span><strong>A quote, chosen for you</strong></div></div><div className="preview-foot">A real person behind every journey.<span>flyeasy.</span></div></aside></div>;
 }

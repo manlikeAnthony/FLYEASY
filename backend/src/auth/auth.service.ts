@@ -105,39 +105,23 @@ export const loginService = async (
 
   const tokenUser = createTokenUser(user);
 
-  let refreshToken = "";
-
-  const existingToken = await Token.findOne({ user: user._id });
-
-  if (existingToken) {
-    if (!existingToken.isValid) {
-      CustomError.throwError(
-        HttpCodes.UNAUTHORIZED,
-        AppCodes.AUTH_UNAUTHORIZED,
-        "Invalid credentials",
-      );
-    }
-
-    refreshToken = existingToken.refreshToken;
-  } else {
-    refreshToken = crypto.randomBytes(40).toString("hex");
-
-    const tokenPayload: Partial<TokenDocument> = {
-      user: user._id,
-      refreshToken,
-      ip: meta.ip,
-      userAgent: meta.userAgent,
-    };
-
-    await Token.create(tokenPayload);
-  }
+  // A refresh record represents one browser/device session. Never reuse a
+  // previous record here: doing so lets one device's logout invalidate another.
+  const refreshToken = crypto.randomBytes(40).toString("hex");
+  const tokenPayload: Partial<TokenDocument> = {
+    user: user._id,
+    refreshToken,
+    ip: meta.ip,
+    userAgent: meta.userAgent,
+  };
+  await Token.create(tokenPayload);
 
   return { tokenUser, refreshToken };
 };
 
-export const logoutService = async (userId?: string) => {
-  if (userId) {
-    await Token.deleteMany({ user: userId });
+export const logoutService = async (userId?: string, refreshToken?: string) => {
+  if (userId && refreshToken) {
+    await Token.deleteOne({ user: userId, refreshToken });
   }
 };
 

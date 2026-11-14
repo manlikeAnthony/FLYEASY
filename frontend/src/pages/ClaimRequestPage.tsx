@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function ClaimRequestPage() {
+  const [contact, setContact] = React.useState("");
   const [trackingId, setTrackingId] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [errorMessage, setErrorMessage] = React.useState("");
@@ -14,7 +15,7 @@ export default function ClaimRequestPage() {
   const { user } = useAuth();
 
   const mutation = useMutation({
-    mutationFn: (id: string) => claimRequest(id),
+    mutationFn: (id: string) => claimRequest(id, contact),
     onSuccess: () => {
       setErrorMessage("");
       setMessage("Request successfully claimed");
@@ -73,6 +74,7 @@ export default function ClaimRequestPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <label className="block text-sm">Contact used for this request<input className="w-full border rounded-lg px-3 py-3 mt-2" style={{background:"var(--input-bg)",borderColor:"var(--border)"}} value={contact} onChange={e=>setContact(e.target.value)} placeholder="Original email or phone number" required={trackingId.length <= 6}/></label>
           <div>
             <label className="block text-sm font-medium mb-1">
               Tracking ID

@@ -1,174 +1,23 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import Card from "../components/Card";
-import Button from "../components/Button";
+import { ArrowRight, ArrowUpRight, CalendarDays, MessageCircle, Plane, Plus } from "lucide-react";
 import { getMyRequests } from "../services/requests";
 import type { FlightRequest } from "../types/requests";
 import { useAuth } from "../contexts/AuthContext";
-import { getStatusBadge } from "../utils/requestStatus";
-
-export default function MyRequestsPage() {
-  const { user } = useAuth();
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["my-requests"],
-    queryFn: getMyRequests,
-    enabled: !!user,
-    retry: false,
-  });
-
-  // Not logged in state
-  if (!user) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold text-[#1E4E8C]">My Requests</h1>
-          <Link to="/claim">
-            <Button variant="outline">Claim Request</Button>
-          </Link>
-        </div>
-        <Card>
-          <div className="text-center py-8">
-            <p className="text-gray-600 mb-4">You are not logged in</p>
-            <p className="text-gray-600 mb-4">
-              Please log in to view your flight requests.
-            </p>
-            <Link to="/login">
-              <Button variant="primary">Go to Login</Button>
-            </Link>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  if (error && !isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold text-[#1E4E8C]">My Requests</h1>
-          <Link to="/claim">
-            <Button variant="outline">Claim Request</Button>
-          </Link>
-        </div>
-        <Card>
-          <p className="text-red-600">
-            Failed to load your requests. Please try again.
-          </p>
-        </Card>
-      </div>
-    );
-  }
-
-  // Loading state with skeletons
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold text-[#1E4E8C]">My Requests</h1>
-          <Link to="/claim">
-            <Button variant="outline">Claim Request</Button>
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} skeleton />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  const requests = (data?.data || []) as FlightRequest[];
-
-  // Empty state
-  if (requests.length === 0) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold text-[#1E4E8C]">My Requests</h1>
-          <Link to="/claim">
-            <Button variant="outline">Claim Request</Button>
-          </Link>
-        </div>
-        <Card>
-          <div className="text-center py-8">
-            <p className="text-gray-600 mb-4">You have no requests yet.</p>
-            <Link to="/book">
-              <Button variant="primary">Create a Request</Button>
-            </Link>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  // Requests list
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-[#1E4E8C]">My Requests</h1>
-        <Link to="/claim">
-          <Button variant="outline">Claim Request</Button>
-        </Link>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {requests.map((req) => (
-          <Card key={req._id || req.trackingId}>
-            <div className="space-y-2">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">
-                    Name
-                  </p>
-                  <p className="font-semibold text-gray-900">{req.name}</p>
-                </div>
-                {(() => {
-                  const b = getStatusBadge(req.status, req.user);
-                  return (
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${b.classes}`}
-                    >
-                      {b.label}
-                    </span>
-                  );
-                })()}
-              </div>
-
-              <div className="text-sm text-gray-600">
-                <p className="font-medium text-gray-900">
-                  {req.from} → {req.to}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 pt-2 border-t border-gray-100">
-                <div>
-                  <p className="text-gray-500">Date</p>
-                  <p className="font-medium text-gray-800">
-                    {new Date(req.date).toLocaleDateString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Budget</p>
-                  <p className="font-medium text-gray-800">
-                    ₦{req.budget ?? "—"}
-                  </p>
-                </div>
-              </div>
-
-              {req.trackingId && (
-                <div className="pt-2 border-t border-gray-100">
-                  <p className="text-xs text-gray-500 mb-1">Tracking ID</p>
-                  <div className="bg-gray-50 border border-gray-200 rounded px-2 py-1">
-                    <code className="text-xs text-gray-700 break-all">
-                      {req.trackingId}
-                    </code>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
+import { StatusBadge } from "../components/RequestTable";
+export default function MyRequestsPage(){
+  const {user}=useAuth();const [tab,setTab]=useState("All journeys");
+  const query=useQuery({queryKey:["my-requests"],queryFn:getMyRequests,refetchInterval:30000});const items=(query.data?.data||[]) as FlightRequest[];
+  const review=items.filter(i=>i.quote?.decision==="pending"&&i.status==="processing");
+  const active=items.filter(i=>i.status==="processing"||i.status==="pending");const booked=items.filter(i=>i.status==="completed");
+  const visible=tab==="Your move"?review:tab==="In the works"?active:tab==="Booked"?booked:items;
+  return <div className="traveler-page"><div className="traveler-welcome"><div><span className="eyebrow">WELCOME BACK, {user?.name?.split(" ")[0]?.toUpperCase()||"TRAVELER"}</span><h1>Your next chapter<br/>is <em>taking shape.</em></h1><p>A new adventure. A trip home. Whatever’s next, we’re with you.</p><Link className="ink-button" to="/my/new"><Plus size={18}/>Plan a new journey</Link></div><div className="welcome-orbit" aria-hidden="true"><div/><div/><Plane size={50}/><span>GOOD THINGS<br/>ARE ON THE HORIZON.</span></div></div>
+  <div className="traveler-summary"><span><b>{query.isLoading||query.isError?"—":active.length.toString().padStart(2,"0")}</b>journeys in the works</span><span><b>{query.isLoading||query.isError?"—":booked.length.toString().padStart(2,"0")}</b>flights booked</span><span className={review.length?"needs-review":""}><b>{query.isLoading||query.isError?"—":review.length.toString().padStart(2,"0")}</b>quotes to review</span></div>
+  {query.isError&&<div className="error-state" role="alert">Your journeys couldn’t be loaded. <button className="underline" onClick={()=>query.refetch()}>Let’s try again</button></div>}
+  {!query.isError&&!!review.length&&<Link className="review-nudge" to={`/workspace/${review[0]._id}`}><span><MessageCircle size={21}/>Something good is waiting.</span><p>{review.length===1?"Your travel expert has a flight proposal ready for you.":`${review.length} flight proposals are ready for your review.`}</p><ArrowUpRight size={22}/></Link>}
+  <div className="journeys-header"><div><span className="eyebrow">YOUR TRAVEL JOURNAL</span><h2>Places to go. Plans to follow.</h2></div><Link className="text-link" to="/claim">Link a guest request <ArrowUpRight size={17}/></Link></div>
+  <div className="journey-tabs" aria-label="Filter journeys">{["All journeys","Your move","In the works","Booked"].map(t=><button aria-pressed={tab===t} className={tab===t?"selected":""} key={t} onClick={()=>setTab(t)}>{t}{t==="Your move"&&!!review.length&&<span>{review.length}</span>}</button>)}</div>
+  {query.isLoading?<div className="journey-skeleton" role="status"><div/><div/><span>Gathering your journeys…</span></div>:!query.isError&&<div className="traveler-journeys">{visible.length?visible.map(item=><Link className="journey-pass" key={item._id} to={`/workspace/${item._id}`}><div className="pass-heading"><span>YOUR JOURNEY · {item.trackingId}</span><StatusBadge status={item.status}/></div><div className="pass-route"><div><small>TAKING OFF</small><h3>{item.from}</h3></div><div className="pass-flight-line"><i/><Plane size={23}/><i/></div><div><small>TOUCHING DOWN</small><h3>{item.to}</h3></div></div><div className="pass-details"><span><CalendarDays size={17}/>{new Date(item.date).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</span><span>{item.quote?.decision==="pending"&&item.status==="processing"?"Quote ready for review":item.messages?.length?`${item.messages.length} messages in your conversation`:"Your travel expert is here for you"}</span><span>Follow the journey <ArrowUpRight size={19}/></span></div></Link>):<div className="fresh-empty"><div className="empty-flight" aria-hidden="true"><span/><Plane size={35}/><span/></div><span className="eyebrow">{tab==="All journeys"?"A BLANK PAGE. ENDLESS POSSIBILITIES.":"ALL CAUGHT UP."}</span><h2>{tab==="All journeys"?<>Your next story<br/>starts <em>here.</em></>:"Nothing in this chapter yet."}</h2><p>{tab==="All journeys"?"Tell us where you’d love to go. Your travel expert will handle the rest.":"Your journeys will appear here when they reach this stage."}</p><Link to="/my/new" className="ink-button">Plan a journey <ArrowUpRight size={20}/></Link></div>}</div>}
+  <div className="traveler-footer-note"><MessageCircle size={22}/><div><h3>A conversation, not a call center.</h3><p>Open any journey to chat with your expert, review a quote, or follow the latest update.</p></div><ArrowRight size={24}/></div><p className="analytics-note">Showing your latest 100 requests.</p></div>;
 }
