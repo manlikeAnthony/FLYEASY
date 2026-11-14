@@ -12,7 +12,9 @@ export const authenticateUser = (
   _res: Response,
   next: NextFunction,
 ) => {
-  const token = req.cookies?.accessToken;
+  const authorization = req.get("authorization");
+  const bearerToken = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const token = bearerToken || req.cookies?.accessToken;
 
   if (!token) {
     CustomError.throwError(
@@ -66,4 +68,10 @@ export const authorizeRoles = (...allowedRoles: string[]) => {
     }
     next();
   };
+};
+
+export const optionalAuthentication = (req: Request, res: Response, next: NextFunction) => {
+  if (req.cookies?.accessToken || req.get("authorization"))
+    return authenticateUser(req, res, next);
+  next();
 };

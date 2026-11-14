@@ -1,4 +1,8 @@
 export type FlightRequest = {
+  whatsappOptIn?: boolean;
+  messages?: { author: string; role: string; text: string; createdAt: string }[];
+  history?: { status: string; createdAt: string }[];
+  quote?: { airline: string; amount: number; currency: string; details: string; decision: string };
   _id?: string;
   id?: string;
   trackingId?: string;
@@ -18,6 +22,5 @@ export type FlightRequestForm = {
   from: string;
   to: string;
   date: string;
-  budget: string; // string because input field
   contact: string;
 };

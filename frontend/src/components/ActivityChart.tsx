@@ -1,0 +1,17 @@
+import { useId, useState } from "react";
+export type ActivityPoint={date:string;count:number};
+export function dateRange(days:number):ActivityPoint[]{return Array.from({length:days},(_,i)=>{const d=new Date();d.setUTCDate(d.getUTCDate()-days+1+i);return {date:d.toISOString().slice(0,10),count:0};});}
+export default function ActivityChart({data,label,color="var(--accent)"}:{data:ActivityPoint[];label:string;color?:string}){
+  const id=useId().replace(/:/g,"");const [selected,setSelected]=useState<number|null>(null);const width=760,height=250,left=44,right=20,top=25,bottom=30;
+  const maximum=Math.max(...data.map(d=>d.count),4);const ceiling=Math.ceil(maximum/4)*4;const chartWidth=width-left-right,chartHeight=height-top-bottom;
+  const point=(i:number)=>({x:left+i/Math.max(data.length-1,1)*chartWidth,y:top+chartHeight-data[i].count/ceiling*chartHeight});
+  const line=data.map((_,i)=>`${i?"L":"M"}${point(i).x},${point(i).y}`).join(" ");const area=data.length?`${line} L${point(data.length-1).x},${height-bottom} L${left},${height-bottom} Z`:"";
+  const active=selected!==null&&data[selected]?selected:null;
+  return <div className="activity-visual"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${label}: ${data.map(d=>`${d.date}: ${d.count}`).join(", ")}`} onMouseLeave={()=>setSelected(null)}><defs><linearGradient id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity=".2"/><stop offset="100%" stopColor={color} stopOpacity="0"/></linearGradient></defs>
+  {[0,1,2,3,4].map(i=>{const y=top+i/4*chartHeight;return <g key={i}><line x1={left} x2={width-right} y1={y} y2={y} stroke="var(--border)" strokeDasharray="3 7"/><text x={left-13} y={y+4} textAnchor="end" fill="var(--muted)" fontSize="12">{ceiling-i*ceiling/4}</text></g>;})}
+  <path d={area} fill={`url(#${id})`}/><path key={line} className="activity-line" d={line} stroke={color} strokeWidth="3" fill="none" strokeLinejoin="round" strokeLinecap="round"/>
+  {data.map((d,i)=>i===0||i===data.length-1||i%Math.ceil(data.length/5)===0?<text key={d.date} x={point(i).x} y={height-7} textAnchor={i===0?"start":i===data.length-1?"end":"middle"} fill="var(--muted)" fontSize="12">{new Date(`${d.date}T12:00:00Z`).toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:"UTC"})}</text>:null)}
+  {active!==null&&<g><line x1={point(active).x} x2={point(active).x} y1={top} y2={height-bottom} stroke={color} strokeOpacity=".3"/><circle cx={point(active).x} cy={point(active).y} r="6" fill={color} stroke="var(--card-bg)" strokeWidth="3"/><rect x={Math.min(Math.max(point(active).x-65,left),width-155)} y={0} width="135" height="26" rx="7" fill={color}/><text x={Math.min(Math.max(point(active).x-65,left),width-155)+67} y="17" textAnchor="middle" fill="white" fontSize="12">{data[active].date.slice(5)} · {data[active].count} {label}</text></g>}
+  {data.map((d,i)=><rect key={d.date} x={point(i).x-chartWidth/Math.max(data.length-1,1)/2} y={28} width={chartWidth/Math.max(data.length-1,1)} height={chartHeight-5} fill="transparent" tabIndex={0} role="button" aria-label={`${d.date}: ${d.count} ${label}`} onMouseEnter={()=>setSelected(i)} onFocus={()=>setSelected(i)} onBlur={()=>setSelected(null)} onClick={()=>setSelected(i)}/>)}
+  </svg><details className="chart-data"><summary>View daily data</summary><div className="table-wrap"><table><thead><tr><th>Date · UTC</th><th>{label}</th></tr></thead><tbody>{data.map(d=><tr key={d.date}><td>{d.date}</td><td>{d.count}</td></tr>)}</tbody></table></div></details></div>;
+}

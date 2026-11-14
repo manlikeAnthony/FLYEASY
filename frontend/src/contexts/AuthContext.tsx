@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { clearStoredAccessToken } from "../services/api";
 
 type User = {
   id?: string;
@@ -28,6 +29,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const onLogout = () => {
       setUser(null);
       localStorage.removeItem("fe_user");
+      clearStoredAccessToken();
       try {
         window.location.assign("/login");
       } catch (e) {
@@ -47,6 +49,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const clearAuth = () => {
     setUser(null);
     localStorage.removeItem("fe_user");
+    clearStoredAccessToken();
     try {
       window.location.assign("/login");
     } catch (e) {

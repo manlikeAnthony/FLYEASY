@@ -1,3 +1,9 @@
+import { notificationEvent } from "../notifications/notification.service";
+import type { NotificationEvent } from "../types/notification.types";
+import { CustomError } from "../errors/CustomError";
+import { HttpCodes } from "../errors/HttpCodes";
+import { AppCodes } from "../errors/AppCodes";
+import { Types } from "mongoose";
 import Request, { RequestDocument } from "./request.model";
 import type { RequestQuery } from "../query/request/requestQuery";
 
@@ -9,8 +15,12 @@ export const createRequestService = async (data: {
   budget?: number;
   contact: string;
   trackingId: string;
+  whatsappOptIn?: boolean;
+  notificationEvents?: NotificationEvent[];
+  user?: string;
+  history?: { status: string; createdAt: Date }[];
 }): Promise<RequestDocument> => {
-  const request = await Request.create(data);
+  const request = await Request.create({ ...data, user: data.user ? new Types.ObjectId(data.user) : undefined });
   return request;
 };
 
@@ -119,27 +129,23 @@ export const getMyRequestsService = async (
 export const getRequestByTrackingIdService = async (
   trackingId: string,
 ): Promise<RequestDocument | null> => {
-  return Request.findOne({ trackingId });
+  return Request.findOne({ trackingId: trackingId.length <= 6 ? { $in: [trackingId, trackingId.toUpperCase(), trackingId.toLowerCase()] } : trackingId });
 };
 
 export const claimRequestService = async (
   trackingId: string,
   userId: string,
+  contact?: unknown,
 ) => {
-  const request = await Request.findOne({ trackingId });
-
-  if (!request) {
-    throw new Error("Request not found");
-  }
-
-  if (request.user) {
-    throw new Error("Already claimed");
-  }
-
-  request.user = userId as any; // Type assertion since we know it's an ObjectId
-  request.claimedAt = new Date();
-
-  return request.save();
+  if (trackingId.length <= 6 && (typeof contact !== "string" || !contact.trim())) CustomError.throwError(HttpCodes.BAD_REQUEST, AppCodes.MISSING_REQUIRED_FIELD, "Enter the contact used for this request");
+  const contactFilter = trackingId.length <= 6 ? { contact: { $regex: `^${(contact as string).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" } } : {};
+  const request = await Request.findOneAndUpdate(
+    { trackingId: trackingId.length <= 6 ? { $in: [trackingId, trackingId.toUpperCase(), trackingId.toLowerCase()] } : trackingId, ...contactFilter, $or: [{ user: { $exists: false } }, { user: null }] },
+    { $set: { user: userId, claimedAt: new Date() } },
+    { new: true },
+  );
+  if (!request) CustomError.throwError(HttpCodes.NOT_FOUND, AppCodes.REQUEST_NOT_FOUND, "Request not found or already claimed");
+  return request;
 };
 
 export const getRequestStatsService = async (days = 14) => {
@@ -168,13 +174,15 @@ export const getRequestStatsService = async (days = 14) => {
   const recentRequests = await Request.find()
     .sort({ createdAt: -1 })
     .limit(5)
-    .select("routeFrom routeTo createdAt status user trackingId")
+    .select("from to name date budget createdAt status user trackingId")
     .lean();
 
   // Time series for the last `days` days
   const end = new Date();
   const start = new Date();
-  start.setDate(end.getDate() - (days - 1));
+  days = Math.max(1, Math.min(90, Math.floor(days)));
+  start.setUTCDate(end.getUTCDate() - (days - 1));
+  start.setUTCHours(0, 0, 0, 0);
 
   const perDayAgg = await Request.aggregate([
     {
@@ -195,7 +203,7 @@ export const getRequestStatsService = async (days = 14) => {
   const map = new Map<string, number>();
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date();
-    d.setDate(end.getDate() - i);
+    d.setUTCDate(end.getUTCDate() - i);
     map.set(d.toISOString().slice(0, 10), 0);
   }
   perDayAgg.forEach((r: any) => map.set(r._id, r.count));
@@ -224,6 +232,7 @@ export const updateRequestStatusService = async (
 export const updateRequestService = async (
   id: string,
   data: Partial<{
+    status: "pending" | "processing" | "completed" | "rejected";
     name: string;
     from: string;
     to: string;
@@ -232,7 +241,10 @@ export const updateRequestService = async (
     contact: string;
   }>,
 ): Promise<RequestDocument | null> => {
-  return Request.findByIdAndUpdate(id, data, { new: true });
+  const update: Record<string, unknown> = Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
+  if (data.contact !== undefined) update.whatsappOptIn = false;
+  const extra = data.status ? { $push: { history: { status: data.status, createdAt: new Date() }, notificationEvents: notificationEvent("status.updated") } } : {};
+  return Request.findByIdAndUpdate(id, { $set: update, ...extra }, { new: true, runValidators: true });
 };
 
 export const deleteRequestService = async (

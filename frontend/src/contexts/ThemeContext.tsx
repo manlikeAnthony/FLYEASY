@@ -63,6 +63,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
           placeholder: "#9ca3af",
         };
 
+    root.style.setProperty("--brand-ink", darkTheme ? "#9cc3f0" : "#1e4e8c");
+    root.style.setProperty("color-scheme", darkTheme ? "dark" : "light");
     root.style.setProperty("--bg", colors.bg);
     root.style.setProperty("--card-bg", colors.cardBg);
     root.style.setProperty("--text", colors.text);

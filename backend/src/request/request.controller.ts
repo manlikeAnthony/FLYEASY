@@ -18,18 +18,19 @@ import { HttpCodes } from "../errors/HttpCodes";
 import { successResponse } from "../response";
 import { parseRequestQuery } from "../query/request/requestQuery";
 import type { Params, TrackingParams } from "../types/auth.types";
-import crypto from "crypto";
+import { notificationEvent } from "../notifications/notification.service";
+import { generateTrackingId, contactMatches } from "./tracking";
 import RequestFlight from "./request.model";
-
-function generateTrackingId(length = 6) {
-  return crypto.randomBytes(4).toString("hex").slice(0, length);
-}
+import { processNotificationOutbox } from "../notifications/notification.processor";
 
 export const createRequestController = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { name, from, to, date, budget, contact } = req.body;
+  const { name, from, to, date, contact } = req.body;
+  if (![name, from, to, contact].every(v => typeof v === "string" && v.trim().length > 0 && v.length <= 200) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) < new Date().toISOString().slice(0, 10) || from.trim().toLowerCase() === to.trim().toLowerCase()) {
+    res.status(400).json({ message: "Enter valid trip details and a future travel date." }); return;
+  }
 
   if (!name || !from || !to || !date || !contact) {
     CustomError.throwError(
@@ -42,7 +43,8 @@ export const createRequestController = async (
   let trackingId = "";
   let exists = true;
 
-  while (exists) {
+  let attempts = 0;
+  while (exists && attempts++ < 10) {
     trackingId = generateTrackingId();
     const existingRequest = await RequestFlight.findOne({ trackingId });
     if (!existingRequest) {
@@ -50,15 +52,27 @@ export const createRequestController = async (
     }
   }
 
-  const request = await createRequestService({
+  if (exists) { res.status(503).json({ message: "Please retry your request shortly." }); return; }
+  let request;
+  for (let attempt = 0; attempt < 10; attempt++) {
+  try { request = await createRequestService({
     name,
     from,
     to,
     date,
-    budget,
     contact,
     trackingId,
-  });
+    whatsappOptIn: req.body.whatsappOptIn === true && /^\+[1-9]\d{7,14}$/.test(contact.trim()),
+    notificationEvents: [notificationEvent("request.created", req.user?.userId, req.user?.role)],
+    user: req.user?.userId,
+    history: [{ status: "pending", createdAt: new Date() }],
+  }); break; } catch (error) {
+    if ((error as { code?: number }).code !== 11000) throw error;
+    trackingId = generateTrackingId();
+  }
+  }
+  if (!request) { res.status(503).json({ message: "Please retry your request shortly." }); return; }
+  await processNotificationOutbox();
 
   res.status(201).json({
     id: request._id,
@@ -101,7 +115,7 @@ export const getRequestByIdController = async (
   res.status(200).json(
     successResponse({
       message: "Request retrieved successfully",
-      data: request,
+      data: { from: request.from, to: request.to, date: request.date, status: request.status, trackingId: request.trackingId, history: request.history, whatsappOptIn: request.whatsappOptIn === true },
       code: AppCodes.REQUEST_RETRIEVED,
     }),
   );
@@ -147,7 +161,13 @@ export const getMyRequestByTrackingIdController = async (
     );
   }
 
+  if (trackingId.length <= 6 && (req.method !== "POST" || typeof req.body.contact !== "string" || !req.body.contact.trim())) {
+    res.status(400).json({ message: "Enter the contact used for this request along with your six-character reference." }); return;
+  }
   const request = await getRequestByTrackingIdService(trackingId);
+  if (request && trackingId.length <= 6 && !contactMatches(request.contact, req.body.contact)) {
+    res.status(404).json({ message: "Request not found. Check your reference and contact." }); return;
+  }
 
   if (!request) {
     CustomError.throwError(
@@ -160,7 +180,7 @@ export const getMyRequestByTrackingIdController = async (
   res.status(200).json(
     successResponse({
       message: "Request retrieved successfully",
-      data: request,
+      data: { from: request.from, to: request.to, date: request.date, status: request.status, trackingId: request.trackingId, history: request.history, whatsappOptIn: request.whatsappOptIn === true },
       code: AppCodes.REQUEST_RETRIEVED,
     }),
   );
@@ -188,7 +208,7 @@ export const claimRequestController = async (
     );
   }
 
-  const request = await claimRequestService(id, userId);
+  const request = await claimRequestService(id, userId, req.body.contact);
 
   res.status(200).json({
     message: "Request successfully claimed",
@@ -228,6 +248,7 @@ export const updateRequestStatusController = async (
       "Request not found",
     );
   }
+  await processNotificationOutbox();
 
   res.status(200).json(
     successResponse({
@@ -260,6 +281,7 @@ export const updateRequestController = async (
     date,
     budget,
     contact,
+    status: req.body.status,
   });
 
   if (!updatedRequest) {

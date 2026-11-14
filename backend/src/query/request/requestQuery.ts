@@ -55,12 +55,12 @@ export const parseRequestQuery = (req: Request): RequestQuery => {
     }
   }
 
-  const pageNum = Math.max(1, Number(page));
-  const limitNum = Math.max(1, Number(limit));
+  const pageNum = Math.max(1, Math.floor(Number(page)) || 1);
+  const limitNum = Math.max(1, Math.min(100, Math.floor(Number(limit)) || 10));
 
   return {
     filters: {
-      search: typeof search === "string" ? search.trim() : undefined,
+      search: typeof search === "string" ? search.trim().slice(0, 100).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : undefined,
       status: typeof status === "string" ? status as any : undefined,
       from: typeof from === "string" ? from : undefined,
       to: typeof to === "string" ? to : undefined,

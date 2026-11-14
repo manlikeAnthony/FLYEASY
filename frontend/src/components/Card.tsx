@@ -12,7 +12,7 @@ export default function Card({
   if (skeleton) {
     return (
       <div
-        className={`rounded-2xl shadow-md p-6 ${className}`}
+        className={`rounded-2xl border p-6 ${className}`}
         style={{
           backgroundColor: "var(--card-bg)",
           borderColor: "var(--border)",
@@ -39,7 +39,7 @@ export default function Card({
 
   return (
     <div
-      className={`rounded-2xl shadow-md p-6 ${className}`}
+      className={`rounded-2xl border p-6 ${className}`}
       style={{
         backgroundColor: "var(--card-bg)",
         borderColor: "var(--border)",
